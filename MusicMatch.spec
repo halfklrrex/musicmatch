@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('bin', 'bin')]
+datas = [('bin', 'bin'), ('musicmatch/assets', 'musicmatch/assets')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('customtkinter')

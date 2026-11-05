@@ -24,3 +24,6 @@ Settings and history live in `%APPDATA%\MusicMatch`; the updatable yt-dlp copy i
 Default output folder: `Downloads\MusicMatch`.
 
 Only download content you have the right to download.
+
+## Credits
+Interface font: [Poppins](https://github.com/itfoundry/Poppins), SIL Open Font License 1.1 (see `musicmatch/assets/fonts/OFL.txt`).

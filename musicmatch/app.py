@@ -5,6 +5,7 @@ import queue
 import subprocess
 import threading
 import urllib.request
+from pathlib import Path
 from tkinter import TclError, filedialog
 
 import customtkinter as ctk
@@ -13,22 +14,24 @@ from PIL import Image
 from . import history, metadata
 from .clipboard import extract_urls
 from .downloader import Job, Manager, parse_time, update_ytdlp
-from .queue_row import GREEN, GREY, RED, QueueRow
+from . import theme as t
+from .queue_row import QueueRow
 from .settings import Settings
 
 KBPS = ["128", "192", "320"]
 HEIGHTS = ["Best", "1080", "720", "480", "360"]
 PARALLEL = ["1", "2", "3", "4"]
+GREY, GREEN, RED = t.MUTED, t.GREEN_TEXT, t.RED_TEXT
 
 
 class App(ctk.CTk):
     def __init__(self):
-        ctk.set_appearance_mode("dark")
-        ctk.set_default_color_theme("blue")
+        t.load_fonts()
+        ctk.set_appearance_mode("light")
         super().__init__()
         self.title("MusicMatch")
         self.settings = Settings()
-        self.geometry(self.settings["geometry"] or "1000x700")
+        self.geometry(self.settings["geometry"] or "1040x760")
         self.minsize(860, 520)
 
         self.ui_q = queue.Queue()
@@ -47,74 +50,79 @@ class App(ctk.CTk):
 
     # ------------------------------------------------------------ layout
     def _build(self):
+        self.configure(fg_color=t.BG)
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(3, weight=1)
+        self.rowconfigure(4, weight=1)
 
-        self.banner = ctk.CTkFrame(self, fg_color="#1f3a5f", corner_radius=8)
+        head = ctk.CTkFrame(self, fg_color="transparent")
+        head.grid(row=0, column=0, sticky="ew", padx=24, pady=(20, 0))
+        t.label(head, "MusicMatch", 26, "semibold").grid(row=0, column=0, sticky="w")
+        t.label(head, "Paste a YouTube link, get an MP3 or MP4.", 12, color=t.MUTED
+                ).grid(row=1, column=0, sticky="w")
+
+        self.banner = ctk.CTkFrame(self, fg_color=t.TINT, corner_radius=14)
         self.banner.columnconfigure(0, weight=1)
-        self.banner_label = ctk.CTkLabel(self.banner, text="", anchor="w")
-        self.banner_label.grid(row=0, column=0, sticky="ew", padx=12, pady=8)
-        ctk.CTkButton(self.banner, text="Add", width=60, command=self._banner_add).grid(row=0, column=1, padx=4)
-        ctk.CTkButton(self.banner, text="Dismiss", width=70, fg_color="transparent", border_width=1,
-                      command=self._banner_hide).grid(row=0, column=2, padx=(4, 10))
+        self.banner_label = t.label(self.banner, "", 12, "medium", color=t.ACCENT, anchor="w")
+        self.banner_label.grid(row=0, column=0, sticky="ew", padx=14, pady=10)
+        t.primary_button(self.banner, "Add", self._banner_add, width=60, height=28).grid(row=0, column=1, padx=4)
+        ctk.CTkButton(self.banner, text="Dismiss", width=70, height=28, corner_radius=14,
+                      fg_color="transparent", hover_color=t.TINT_HOVER, text_color=t.ACCENT,
+                      font=t.font(12, "medium"), command=self._banner_hide
+                      ).grid(row=0, column=2, padx=(2, 10))
 
         bar = ctk.CTkFrame(self, fg_color="transparent")
-        bar.grid(row=1, column=0, sticky="ew", padx=16, pady=(14, 6))
+        bar.grid(row=2, column=0, sticky="ew", padx=24, pady=(14, 8))
         bar.columnconfigure(0, weight=1)
-        self.url_entry = ctk.CTkEntry(bar, height=38, placeholder_text="Paste YouTube video or playlist URL(s) here…")
+        self.url_entry = t.entry(bar, 200, 40, "Paste YouTube video or playlist URL(s) here…", on_card=False)
+        self.url_entry.configure(corner_radius=12)
         self.url_entry.grid(row=0, column=0, sticky="ew")
         self.url_entry.bind("<Return>", lambda e: self._add_from_entry())
-        ctk.CTkButton(bar, text="Paste", width=70, height=38, fg_color="transparent", border_width=1,
-                      command=self._paste).grid(row=0, column=1, padx=6)
-        ctk.CTkButton(bar, text="Add to queue", width=120, height=38,
-                      command=self._add_from_entry).grid(row=0, column=2)
+        t.tinted_button(bar, "Paste", self._paste, width=76, height=40).grid(row=0, column=1, padx=8)
+        t.primary_button(bar, "Add to queue", self._add_from_entry, width=130, height=40).grid(row=0, column=2)
 
-        opts = ctk.CTkFrame(self)
-        opts.grid(row=2, column=0, sticky="ew", padx=16, pady=6)
+        opts = ctk.CTkFrame(self, fg_color=t.CARD, corner_radius=14, border_width=1, border_color=t.SEP)
+        opts.grid(row=3, column=0, sticky="ew", padx=24, pady=8)
         opts.columnconfigure(8, weight=1)
-        ctk.CTkLabel(opts, text="New items:").grid(row=0, column=0, padx=(12, 6), pady=10)
-        self.def_fmt = ctk.CTkSegmentedButton(opts, values=["MP3", "MP4"], width=110,
-                                              command=lambda v: self._set("fmt", v))
+        t.label(opts, "New items", 12, color=t.MUTED).grid(row=0, column=0, padx=(14, 8), pady=12)
+        self.def_fmt = t.segmented(opts, ["MP3", "MP4"], command=lambda v: self._set("fmt", v), width=110)
         self.def_fmt.set(self.settings["fmt"])
         self.def_fmt.grid(row=0, column=1)
-        ctk.CTkLabel(opts, text="MP3 kbps").grid(row=0, column=2, padx=(16, 4))
-        self.kbps = ctk.CTkOptionMenu(opts, values=KBPS, width=80, command=lambda v: self._set("kbps", v))
+        t.label(opts, "MP3 kbps", 12, color=t.MUTED).grid(row=0, column=2, padx=(16, 6))
+        self.kbps = t.option_menu(opts, KBPS, lambda v: self._set("kbps", v), width=80)
         self.kbps.set(self.settings["kbps"])
         self.kbps.grid(row=0, column=3)
-        ctk.CTkLabel(opts, text="MP4 max").grid(row=0, column=4, padx=(16, 4))
-        self.height = ctk.CTkOptionMenu(opts, values=HEIGHTS, width=80, command=lambda v: self._set("height", v))
+        t.label(opts, "MP4 max", 12, color=t.MUTED).grid(row=0, column=4, padx=(16, 6))
+        self.height = t.option_menu(opts, HEIGHTS, lambda v: self._set("height", v), width=84)
         self.height.set(self.settings["height"])
         self.height.grid(row=0, column=5)
-        ctk.CTkLabel(opts, text="Parallel").grid(row=0, column=6, padx=(16, 4))
-        self.parallel = ctk.CTkOptionMenu(opts, values=PARALLEL, width=60, command=self._set_parallel)
+        t.label(opts, "Parallel", 12, color=t.MUTED).grid(row=0, column=6, padx=(16, 6))
+        self.parallel = t.option_menu(opts, PARALLEL, self._set_parallel, width=64)
         self.parallel.set(self.settings["parallel"])
         self.parallel.grid(row=0, column=7)
-        self.folder_label = ctk.CTkLabel(opts, text="", anchor="e", text_color=GREY)
+        self.folder_label = t.label(opts, "", 11, color=t.MUTED, anchor="e")
         self.folder_label.grid(row=0, column=8, sticky="ew", padx=10)
-        ctk.CTkButton(opts, text="Browse…", width=80, command=self._browse).grid(row=0, column=9, padx=2)
-        ctk.CTkButton(opts, text="Open", width=60, command=self._open_folder).grid(row=0, column=10, padx=(2, 12))
+        t.tinted_button(opts, "Browse…", self._browse, width=84, height=30).grid(row=0, column=9, padx=2)
+        t.tinted_button(opts, "Open", self._open_folder, width=60, height=30).grid(row=0, column=10, padx=(2, 14))
         self._refresh_folder()
 
-        self.list = ctk.CTkScrollableFrame(self, label_text="")
-        self.list.grid(row=3, column=0, sticky="nsew", padx=16, pady=6)
+        self.list = ctk.CTkScrollableFrame(self, fg_color="transparent", scrollbar_button_color="#C7C7CC",
+                                           scrollbar_button_hover_color="#AEAEB2")
+        self.list.grid(row=4, column=0, sticky="nsew", padx=(18, 12), pady=4)
         self.list.columnconfigure(0, weight=1)
-        self.empty = ctk.CTkLabel(self.list, text="Queue is empty.\nPaste a link above to get started.",
-                                  text_color=GREY, justify="center")
-        self.empty.grid(row=0, column=0, pady=60)
+        self.empty = t.label(self.list, "Your queue is empty.\nPaste a link above to get started.", 13,
+                             color=t.MUTED, justify="center")
+        self.empty.grid(row=0, column=0, pady=70)
 
         foot = ctk.CTkFrame(self, fg_color="transparent")
-        foot.grid(row=4, column=0, sticky="ew", padx=16, pady=(6, 14))
+        foot.grid(row=5, column=0, sticky="ew", padx=24, pady=(8, 18))
         foot.columnconfigure(4, weight=1)
-        ctk.CTkButton(foot, text="Download all", width=130, height=36,
-                      command=self._download_all).grid(row=0, column=0)
-        ctk.CTkButton(foot, text="Clear finished", width=110, height=36, fg_color="transparent", border_width=1,
-                      command=self._clear_finished).grid(row=0, column=1, padx=6)
-        ctk.CTkButton(foot, text="History", width=80, height=36, fg_color="transparent", border_width=1,
-                      command=self._show_history).grid(row=0, column=2)
-        self.btn_update = ctk.CTkButton(foot, text="Update yt-dlp", width=110, height=36, fg_color="transparent",
-                                        border_width=1, command=self._update_ytdlp)
-        self.btn_update.grid(row=0, column=3, padx=6)
-        self.status = ctk.CTkLabel(foot, text="", anchor="e", text_color=GREY)
+        t.primary_button(foot, "Download all", self._download_all, width=140, height=38).grid(row=0, column=0)
+        t.tinted_button(foot, "Clear finished", self._clear_finished, width=120, height=38
+                        ).grid(row=0, column=1, padx=8)
+        t.tinted_button(foot, "History", self._show_history, width=86, height=38).grid(row=0, column=2)
+        self.btn_update = t.tinted_button(foot, "Update yt-dlp", self._update_ytdlp, width=120, height=38)
+        self.btn_update.grid(row=0, column=3, padx=8)
+        self.status = t.label(foot, "", 12, color=t.MUTED, anchor="e")
         self.status.grid(row=0, column=4, sticky="ew", padx=8)
 
     # ------------------------------------------------------------ plumbing
@@ -156,8 +164,10 @@ class App(ctk.CTk):
     # ------------------------------------------------------------ folder
     def _refresh_folder(self):
         d = self.settings["out_dir"]
-        shown = d if len(d) < 60 else "…" + d[-58:]
-        self.folder_label.configure(text=f"Save to: {shown}")
+        home = str(Path.home())
+        shown = "~" + d[len(home):] if d.lower().startswith(home.lower()) else d
+        shown = shown if len(shown) < 50 else "…" + shown[-48:]
+        self.folder_label.configure(text=shown)
 
     def _browse(self):
         d = filedialog.askdirectory(initialdir=self.settings["out_dir"], title="Choose output folder")
@@ -233,7 +243,7 @@ class App(ctk.CTk):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             data = urllib.request.urlopen(req, timeout=15).read()
-            img = Image.open(io.BytesIO(data)).convert("RGB").resize((96, 54))
+            img = t.rounded(Image.open(io.BytesIO(data)).convert("RGB").resize((192, 108)), 16)
             self.ui_q.put((row.set_thumb, (img,)))
         except Exception:  # noqa: BLE001
             pass
@@ -318,7 +328,7 @@ class App(ctk.CTk):
         extra = f" (+{len(new) - 1} more)" if len(new) > 1 else ""
         short = new[0] if len(new) == 0 or len(new[0]) < 60 else new[0][:57] + "…"
         self.banner_label.configure(text=f"YouTube link on clipboard: {short}{extra}")
-        self.banner.grid(row=0, column=0, sticky="ew", padx=16, pady=(12, 0))
+        self.banner.grid(row=1, column=0, sticky="ew", padx=24, pady=(12, 0))
 
     def _banner_add(self):
         self.add_urls(" ".join(self._clip_new))
@@ -362,13 +372,15 @@ class HistoryWindow(ctk.CTkToplevel):
         self.title("Download history")
         self.geometry("720x480")
         self.transient(master)
+        self.configure(fg_color=t.BG)
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
-        self.body = ctk.CTkScrollableFrame(self)
+        self.body = ctk.CTkScrollableFrame(self, fg_color="transparent", scrollbar_button_color="#C7C7CC",
+                                           scrollbar_button_hover_color="#AEAEB2")
         self.body.grid(row=0, column=0, sticky="nsew", padx=12, pady=12)
         self.body.columnconfigure(0, weight=1)
-        ctk.CTkButton(self, text="Clear history", fg_color="transparent", border_width=1,
-                      command=self._clear).grid(row=1, column=0, pady=(0, 12))
+        t.tinted_button(self, "Clear history", self._clear, width=120, height=34
+                        ).grid(row=1, column=0, pady=(0, 14))
         self._fill()
         self.after(150, self.lift)
 
@@ -377,20 +389,20 @@ class HistoryWindow(ctk.CTkToplevel):
             w.destroy()
         items = history.load()
         if not items:
-            ctk.CTkLabel(self.body, text="No downloads yet.", text_color=GREY).grid(pady=40)
+            t.label(self.body, "No downloads yet.", 13, color=GREY).grid(pady=40)
             return
         for i, it in enumerate(items):
-            f = ctk.CTkFrame(self.body)
+            f = ctk.CTkFrame(self.body, fg_color=t.CARD, corner_radius=14, border_width=1, border_color=t.SEP)
             f.grid(row=i, column=0, sticky="ew", pady=3)
             f.columnconfigure(0, weight=1)
             title = it["title"] if len(it["title"]) < 60 else it["title"][:57] + "…"
-            ctk.CTkLabel(f, text=title, anchor="w").grid(row=0, column=0, sticky="ew", padx=10, pady=(6, 0))
-            ctk.CTkLabel(f, text=f'{it["fmt"]}  •  {it["date"]}', anchor="w", text_color=GREY
-                         ).grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 6))
-            ctk.CTkButton(f, text="Open", width=60, command=lambda p=it["path"]: self._open(p)
-                          ).grid(row=0, column=1, rowspan=2, padx=3)
-            ctk.CTkButton(f, text="Show in folder", width=100, command=lambda p=it["path"]: self._show(p)
-                          ).grid(row=0, column=2, rowspan=2, padx=(3, 10))
+            t.label(f, title, 13, "medium", anchor="w").grid(row=0, column=0, sticky="ew", padx=14, pady=(10, 0))
+            t.label(f, f'{it["fmt"]}  •  {it["date"]}', 11, color=GREY, anchor="w"
+                    ).grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 10))
+            t.tinted_button(f, "Open", lambda p=it["path"]: self._open(p), width=64, height=30
+                            ).grid(row=0, column=1, rowspan=2, padx=3)
+            t.tinted_button(f, "Show in folder", lambda p=it["path"]: self._show(p), width=110, height=30
+                            ).grid(row=0, column=2, rowspan=2, padx=(3, 12))
 
     def _open(self, path):
         if os.path.exists(path):
@@ -405,7 +417,7 @@ class HistoryWindow(ctk.CTkToplevel):
             self._missing()
 
     def _missing(self):
-        ctk.CTkLabel(self, text="That file no longer exists.", text_color=RED).grid(row=2, column=0, pady=(0, 8))
+        t.label(self, "That file no longer exists.", 12, color=RED).grid(row=2, column=0, pady=(0, 8))
         self.after(2500, lambda: [w.destroy() for w in self.grid_slaves(row=2)])
 
     def _clear(self):

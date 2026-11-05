@@ -16,6 +16,11 @@ def _bundle_bin() -> Path:
 
 
 BUNDLED_BIN = _bundle_bin()
+ASSETS = (
+    Path(getattr(sys, "_MEIPASS", ".")) / "musicmatch" / "assets"
+    if getattr(sys, "frozen", False)
+    else Path(__file__).resolve().parent / "assets"
+)
 DATA_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / APP
 LOCAL_BIN = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / APP / "bin"
 
