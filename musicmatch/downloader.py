@@ -1,9 +1,11 @@
 """Builds yt-dlp commands, runs them in worker threads and reports progress."""
-import glob
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 import threading
+import time
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -77,8 +79,8 @@ def _release(job: Job, name: str):
         _reserved.discard(f"{Path(job.out_dir) / name}.{job.fmt}".lower())
 
 
-def build_command(job: Job, name: str) -> list:
-    out_tmpl = str(Path(job.out_dir) / name.replace("%", "%%")) + ".%(ext)s"
+def build_command(job: Job, name: str, work: Path) -> list:
+    out_tmpl = str(work / name.replace("%", "%%")) + ".%(ext)s"
     cmd = [
         str(ytdlp_path()), "--no-playlist", "--no-warnings", "--newline", "--progress",
         "--windows-filenames", "--ffmpeg-location", str(ffmpeg_dir()),
@@ -113,37 +115,47 @@ def kill_tree(proc: Optional[subprocess.Popen]):
                        capture_output=True, creationflags=NO_WINDOW)
 
 
-def _cleanup(job: Job, name: str):
-    """Remove partial/intermediate files for a failed or cancelled job."""
-    pattern = os.path.join(glob.escape(job.out_dir), glob.escape(name) + ".*")
-    for f in glob.glob(pattern):
-        try:
-            os.remove(f)
-        except OSError:
-            pass
-
-
 Emit = Callable[[Job, str, object], None]
+
+# All downloading and converting happens in a private folder on the local disk;
+# only the finished file is copied into the output folder. That keeps half-made
+# files out of the user's folder and avoids trouble with cloud-synced folders
+# (Google Drive, OneDrive) that lock or lag on files while they are being written.
+WORK_ROOT = Path(tempfile.gettempdir()) / "MusicMatch"
+
+
+def purge_old_work(max_age_hours: float = 24):
+    """Remove work folders left behind by a crash."""
+    try:
+        for d in WORK_ROOT.iterdir():
+            if d.is_dir() and time.time() - d.stat().st_mtime > max_age_hours * 3600:
+                shutil.rmtree(d, ignore_errors=True)
+    except OSError:
+        pass
+
+
+def _ffmpeg(job: Job, args: list):
+    """Run ffmpeg; returns (return code, last error line)."""
+    cmd = [str(ffmpeg_path()), "-y", "-hide_banner", "-v", "error", *args]
+    job.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL,
+                                text=True, encoding="utf-8", errors="replace", creationflags=NO_WINDOW)
+    _, err = job.proc.communicate()
+    lines = [l.strip() for l in (err or "").splitlines() if l.strip()]
+    return job.proc.returncode, (lines[-1] if lines else "")
 
 
 def _normalize_mp4(job: Job, emit: Emit) -> bool:
     src = Path(job.result_path)
     tmp = src.with_name(src.stem + ".norm.mp4")
     emit(job, "status", "@normalizing")
-    cmd = [str(ffmpeg_path()), "-y", "-i", str(src), "-map", "0", "-c:v", "copy",
-           "-c:a", "aac", "-b:a", "192k", "-af", "loudnorm", "-movflags", "+faststart", str(tmp)]
-    job.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
-    rc = job.proc.wait()
+    rc, detail = _ffmpeg(job, ["-i", str(src), "-map", "0", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                               "-af", "loudnorm", "-movflags", "+faststart", str(tmp)])
     if job.cancelled:
-        tmp.unlink(missing_ok=True)
         return False
     if rc != 0:
-        tmp.unlink(missing_ok=True)
-        raise RuntimeError("@norm_failed")
+        raise RuntimeError(f"@norm_failed|{detail}")
     os.replace(tmp, src)
     return True
-
 
 
 def _write_tags(job: Job, emit: Emit) -> bool:
@@ -155,52 +167,87 @@ def _write_tags(job: Job, emit: Emit) -> bool:
     tmp = src.with_name(src.stem + ".tagged" + src.suffix)
     song = job.song or job.title
     emit(job, "status", "@tagging")
-    cmd = [str(ffmpeg_path()), "-y", "-i", str(src), "-map", "0", "-c", "copy", "-map_metadata", "-1",
-           "-metadata", f"title={song}", "-metadata", f"album={song}"]
+    args = ["-i", str(src), "-map", "0", "-c", "copy", "-map_metadata", "-1",
+            "-metadata", f"title={song}", "-metadata", f"album={song}"]
     if job.artist:
-        cmd += ["-metadata", f"artist={job.artist}", "-metadata", f"album_artist={job.artist}"]
+        args += ["-metadata", f"artist={job.artist}", "-metadata", f"album_artist={job.artist}"]
     if src.suffix.lower() == ".mp3":
-        cmd += ["-id3v2_version", "3", "-write_id3v1", "1",
-                "-metadata:s:v", "title=Album cover", "-metadata:s:v", "comment=Cover (front)"]
+        args += ["-id3v2_version", "3", "-write_id3v1", "1",
+                 "-metadata:s:v", "title=Album cover", "-metadata:s:v", "comment=Cover (front)"]
     else:
-        cmd += ["-movflags", "+faststart"]
-    cmd.append(str(tmp))
-    job.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
-    rc = job.proc.wait()
+        args += ["-movflags", "+faststart"]
+    rc, detail = _ffmpeg(job, args + [str(tmp)])
     if job.cancelled:
-        tmp.unlink(missing_ok=True)
         return False
     if rc != 0:
-        tmp.unlink(missing_ok=True)
-        raise RuntimeError("@tags_failed")
+        raise RuntimeError(f"@tags_failed|{detail}")
     os.replace(tmp, src)
     return True
 
 
+def _retry(action, tries: int = 6, delay: float = 0.6):
+    """Run `action`, retrying on OSError (cloud drives can briefly lock new files)."""
+    for i in range(tries):
+        try:
+            return action()
+        except OSError:
+            if i == tries - 1:
+                raise
+            time.sleep(delay * (i + 1))
+
+
+def _deliver(job: Job, emit: Emit, src: Path, name: str) -> Path:
+    """Copy the finished file into the output folder and return its final path."""
+    emit(job, "status", "@saving")
+    final = Path(job.out_dir) / (name + src.suffix)
+    part = final.with_name(final.name + ".mmpart")
+    try:
+        _retry(lambda: shutil.copyfile(src, part))
+        _retry(lambda: os.replace(part, final))
+    except OSError as e:
+        try:
+            part.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise RuntimeError(f"@save_failed|{e.strerror or e}") from e
+    return final
+
+
 def run_job(job: Job, emit: Emit):
     name = None
+    work = None
     try:
         os.makedirs(job.out_dir, exist_ok=True)
+        WORK_ROOT.mkdir(parents=True, exist_ok=True)
+        work = Path(tempfile.mkdtemp(prefix="job_", dir=WORK_ROOT))
         name = _unique_base(job)
-        cmd = build_command(job, name)
+        cmd = build_command(job, name, work)
     except ValueError:
         job.state = "error"
         emit(job, "error", "@invalid_trim")
+        if work:
+            shutil.rmtree(work, ignore_errors=True)
         return
     except Exception as e:
         job.state = "error"
         emit(job, "error", str(e))
+        if work:
+            shutil.rmtree(work, ignore_errors=True)
         return
 
     job.state = "running"
     emit(job, "status", "@starting")
     errors = []
+
+    def cancelled():
+        job.state = "cancelled"
+        emit(job, "cancelled", None)
+
     try:
         job.proc = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
             text=True, encoding="utf-8", errors="replace",
-            creationflags=NO_WINDOW, env=tool_env(), cwd=job.out_dir,
+            creationflags=NO_WINDOW, env=tool_env(), cwd=str(work),
         )
         if job.cancelled:
             kill_tree(job.proc)
@@ -225,39 +272,30 @@ def run_job(job: Job, emit: Emit):
         rc = job.proc.wait()
 
         if job.cancelled:
-            _cleanup(job, name)
-            job.state = "cancelled"
-            emit(job, "cancelled", None)
-            return
+            return cancelled()
         if rc != 0 or not job.result_path:
             msg = errors[-1] if errors else f"yt-dlp exited with code {rc}"
-            _cleanup(job, name)
             job.state = "error"
             emit(job, "error", msg.replace("ERROR: ", "", 1))
             return
-        if job.fmt == "mp4" and job.normalize:
-            if not _normalize_mp4(job, emit):
-                _cleanup(job, name)
-                job.state = "cancelled"
-                emit(job, "cancelled", None)
-                return
+        if job.fmt == "mp4" and job.normalize and not _normalize_mp4(job, emit):
+            return cancelled()
         if not _write_tags(job, emit):
-            _cleanup(job, name)
-            job.state = "cancelled"
-            emit(job, "cancelled", None)
-            return
+            return cancelled()
+        if job.cancelled:
+            return cancelled()
+        job.result_path = str(_deliver(job, emit, Path(job.result_path), name))
         job.state = "done"
         emit(job, "done", job.result_path)
     except Exception as e:  # noqa: BLE001
         if job.cancelled:
-            _cleanup(job, name)
-            job.state = "cancelled"
-            emit(job, "cancelled", None)
+            cancelled()
         else:
             job.state = "error"
             emit(job, "error", str(e))
     finally:
         _release(job, name)
+        shutil.rmtree(work, ignore_errors=True)
 
 
 class Manager:

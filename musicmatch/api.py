@@ -17,9 +17,9 @@ import webview
 from . import history, metadata
 from .clipboard import extract_urls, scan
 from .naming import file_base, guess
-from .downloader import Job, Manager, parse_time, update_ytdlp
+from .downloader import Job, Manager, parse_time, purge_old_work, update_ytdlp
 
-VERSION = "2.2.0"
+VERSION = "2.2.1"
 
 
 def read_clipboard() -> str:
@@ -63,6 +63,7 @@ class Api:
         self._lock = threading.Lock()
         self._history_lock = threading.Lock()
         self._manager = Manager(self._on_job, int(settings["parallel"]))
+        purge_old_work()
 
     # ---------------------------------------------------------- plumbing
     def _bind(self, window):

@@ -30,8 +30,9 @@ function statusText(s) {
     return [pct, speed, eta && `${tr('s.eta')} ${eta}`].filter(Boolean).join('  •  ');
   }
   if (s.startsWith('@')) {
-    const n = s.slice(1);
-    return tr(STRINGS.en['s.' + n] ? 's.' + n : 'e.' + n);
+    const [n, detail] = s.slice(1).split('|');
+    const text = tr(STRINGS.en['s.' + n] ? 's.' + n : 'e.' + n);
+    return detail ? `${text}: ${detail}` : text;
   }
   if (state.lang === 'es') {
     for (const [re, key] of YTDLP_PATTERNS) if (re.test(s)) return tr(key);

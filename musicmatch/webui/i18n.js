@@ -27,9 +27,9 @@ const STRINGS = {
     t_updating: 'Updating yt-dlp…', t_update_failed: 'Update failed: {msg}',
     's.ready': 'Ready', 's.queued': 'Queued', 's.done': 'Done', 's.cancelled': 'Cancelled',
     's.starting': 'Starting…', 's.converting': 'Converting…', 's.normalizing': 'Normalizing volume…',
-    's.tagging': 'Writing tags…', 's.eta': 'ETA',
+    's.tagging': 'Writing tags…', 's.saving': 'Saving to your folder…', 's.eta': 'ETA',
     'e.invalid_trim': 'Invalid trim time (use 1:30)', 'e.tags_failed': 'Could not write the song tags',
-    'e.norm_failed': 'Volume normalization failed',
+    'e.norm_failed': 'Volume normalization failed', 'e.save_failed': 'Could not save to your folder',
     'e.playlist': 'Playlist links are not supported. Use a link to a single song.',
   },
   es: {
@@ -56,9 +56,9 @@ const STRINGS = {
     t_updating: 'Actualizando yt-dlp…', t_update_failed: 'Error al actualizar: {msg}',
     's.ready': 'Listo para descargar', 's.queued': 'En cola', 's.done': 'Completado', 's.cancelled': 'Cancelado',
     's.starting': 'Iniciando…', 's.converting': 'Convirtiendo…', 's.normalizing': 'Normalizando volumen…',
-    's.tagging': 'Escribiendo etiquetas…', 's.eta': 'quedan',
+    's.tagging': 'Escribiendo etiquetas…', 's.saving': 'Guardando en tu carpeta…', 's.eta': 'quedan',
     'e.invalid_trim': 'Tiempo de recorte no válido (usa 1:30)', 'e.tags_failed': 'No se pudieron escribir las etiquetas',
-    'e.norm_failed': 'Falló la normalización del volumen',
+    'e.norm_failed': 'Falló la normalización del volumen', 'e.save_failed': 'No se pudo guardar en tu carpeta',
     'e.playlist': 'Las listas de reproducción no son compatibles. Usa el enlace de una sola canción.',
     // common yt-dlp messages, matched by pattern (see friendlyError)
     'y.unavailable': 'Vídeo no disponible', 'y.private': 'Vídeo privado',
