@@ -9,7 +9,7 @@ DEFAULTS = {
     "kbps": "320",
     "height": "Best",
     "parallel": "2",
-    "geometry": "",
+    "size": "1120x780",
 }
 
 

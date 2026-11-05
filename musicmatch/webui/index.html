@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MusicMatch</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- icon sprite: 24px grid, 1.75 stroke, round caps -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><path d="M9 4h6v3H9zM9 5.5H7.5A1.5 1.5 0 0 0 6 7v12a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 18 19V7a1.5 1.5 0 0 0-1.5-1.5H15"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H9l2 2.5h7.5A2.5 2.5 0 0 1 21 10v7.5a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></symbol>
+    <symbol id="i-history" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.35-5.65M20 4v5h-5"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></symbol>
+    <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="6.5" cy="17.5" r="2.5"/><path d="M8.3 8.3L19 17M8.3 15.7L19 7"/></symbol>
+    <symbol id="i-wave" viewBox="0 0 24 24"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
+    <symbol id="i-open" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+
+  <header class="bar top">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 512 512" aria-hidden="true">
+        <defs>
+          <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#EEF2F8"/></linearGradient>
+          <mask id="ov" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512"><path d="M140,365 V205 A58,58 0 0 1 256,205 V365" fill="none" stroke="#fff" stroke-width="52" stroke-linecap="round"/></mask>
+        </defs>
+        <rect width="512" height="512" rx="120" fill="url(#tile)"/>
+        <rect x="1.5" y="1.5" width="509" height="509" rx="118.5" fill="none" stroke="#0B1F4B" stroke-opacity=".09" stroke-width="3"/>
+        <path d="M140,365 V205 A58,58 0 0 1 256,205 V365" fill="none" stroke="#007AFF" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M256,365 V205 A58,58 0 0 1 372,205 V365" fill="none" stroke="#64B5FF" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M256,365 V205 A58,58 0 0 1 372,205 V365" fill="none" stroke="#0051D5" stroke-width="52" stroke-linecap="round" stroke-linejoin="round" mask="url(#ov)"/>
+      </svg>
+      <div class="brand-text">
+        <h1><span>Music</span><b>Match</b></h1>
+        <p>Paste a YouTube link, get an MP3 or MP4.</p>
+      </div>
+    </div>
+    <div class="top-actions">
+      <button class="btn ghost" id="historyBtn" type="button"><svg class="i"><use href="#i-history"/></svg>History</button>
+      <button class="btn ghost" id="updateBtn" type="button" title="Update the bundled yt-dlp downloader"><svg class="i"><use href="#i-refresh"/></svg>Update yt-dlp</button>
+    </div>
+  </header>
+
+  <div class="scroll" id="scroll">
+    <div class="wrap">
+
+      <div class="banner" id="banner" hidden>
+        <svg class="i"><use href="#i-clipboard"/></svg>
+        <span class="banner-text" id="bannerText"></span>
+        <button class="btn primary sm" id="bannerAdd" type="button">Add</button>
+        <button class="btn quiet sm" id="bannerDismiss" type="button">Dismiss</button>
+      </div>
+
+      <form class="adder" id="addForm" autocomplete="off">
+        <svg class="i lead"><use href="#i-link"/></svg>
+        <input id="url" type="text" spellcheck="false" placeholder="Paste YouTube video or playlist URL(s) here…" aria-label="YouTube URL">
+        <button class="btn tint" id="pasteBtn" type="button"><svg class="i"><use href="#i-clipboard"/></svg>Paste</button>
+        <button class="btn primary" type="submit"><svg class="i"><use href="#i-plus"/></svg>Add to queue</button>
+      </form>
+
+      <section class="prefs card" aria-label="Options">
+        <div class="pref">
+          <span class="pref-label">New items</span>
+          <div class="seg" id="defFmt" role="group">
+            <button type="button" data-v="mp3">MP3</button><button type="button" data-v="mp4">MP4</button>
+          </div>
+        </div>
+        <div class="pref">
+          <span class="pref-label">MP3 quality</span>
+          <label class="select"><select id="kbps"><option value="128">128 kbps</option><option value="192">192 kbps</option><option value="320">320 kbps</option></select><svg class="i"><use href="#i-chevron"/></svg></label>
+        </div>
+        <div class="pref">
+          <span class="pref-label">MP4 max</span>
+          <label class="select"><select id="height"><option>Best</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option><option value="360">360p</option></select><svg class="i"><use href="#i-chevron"/></svg></label>
+        </div>
+        <div class="pref">
+          <span class="pref-label">Parallel</span>
+          <label class="select"><select id="parallel"><option>1</option><option>2</option><option>3</option><option>4</option></select><svg class="i"><use href="#i-chevron"/></svg></label>
+        </div>
+        <div class="pref folder">
+          <svg class="i"><use href="#i-folder"/></svg>
+          <span class="folder-path" id="folder">~\Downloads\MusicMatch</span>
+          <button class="btn tint sm" id="browseBtn" type="button">Browse…</button>
+          <button class="btn quiet sm" id="openFolderBtn" type="button">Open</button>
+        </div>
+      </section>
+
+      <div class="section-head" id="queueHead" hidden>
+        <h2>Queue</h2><span class="count" id="count">0</span>
+      </div>
+
+      <main class="queue" id="queue" aria-live="polite"></main>
+
+      <div class="empty" id="empty">
+        <svg class="mark big" viewBox="0 0 512 512" aria-hidden="true">
+          <rect width="512" height="512" rx="120" fill="url(#tile)"/>
+          <path d="M140,365 V205 A58,58 0 0 1 256,205 V365" fill="none" stroke="#007AFF" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M256,365 V205 A58,58 0 0 1 372,205 V365" fill="none" stroke="#64B5FF" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M256,365 V205 A58,58 0 0 1 372,205 V365" fill="none" stroke="#0051D5" stroke-width="52" stroke-linecap="round" stroke-linejoin="round" mask="url(#ov)"/>
+        </svg>
+        <h2>Your queue is empty</h2>
+        <p>Paste a YouTube link above, or press <kbd>Ctrl</kbd> + <kbd>V</kbd> anywhere.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <footer class="bar dock">
+    <button class="btn primary lg" id="downloadAll" type="button"><svg class="i"><use href="#i-download"/></svg>Download all</button>
+    <button class="btn tint lg" id="clearDone" type="button">Clear finished</button>
+    <span class="status" id="status"></span>
+  </footer>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="sheet" id="sheet" aria-label="Download history" aria-hidden="true">
+    <div class="sheet-head">
+      <h2>History</h2>
+      <button class="icon-btn" id="sheetClose" type="button" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+    </div>
+    <div class="sheet-body" id="historyList"></div>
+    <div class="sheet-foot"><button class="btn tint" id="historyClear" type="button">Clear history</button></div>
+  </aside>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
