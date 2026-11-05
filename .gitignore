@@ -1,0 +1,8 @@
+# build outputs and downloaded tools (the app fetches/bundles these; see scripts/)
+bin/
+build/
+dist/
+__pycache__/
+*.pyc
+*.log
+.venv/
