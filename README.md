@@ -2,10 +2,11 @@
 
 Small Windows app that turns YouTube links into MP3 or MP4 files.
 
-- Paste video or playlist links; each becomes a queue row with its own MP3/MP4 toggle
+- Paste links to single songs (playlist and mix links are ignored, so one pasted song is one queue row); each becomes a queue row with its own MP3/MP4 toggle
+- English and Spanish interface (EN / ES switch in the top bar)
 - MP3: 128/192/320 kbps with cover art and title/artist tags. MP4: H.264 + AAC, Best/1080/720/480/360
 - Clean song tags and file names for car stereos and players: "Artist - Song (Official Video)" becomes title "Song", artist "Artist" and the file `Song - Artist.mp3` (ID3v2.3 + ID3v1, cover art kept). Both fields can be edited before downloading
-- Optional trim (start/end) and volume normalize per item
+- Optional trim (start/end) and volume normalize per item (on by default)
 - Clipboard detection (and Ctrl+V anywhere), thumbnails and durations, download history
 - 1 to 4 parallel downloads, and an "Update yt-dlp" button for when YouTube changes
 

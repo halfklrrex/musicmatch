@@ -12,7 +12,7 @@ def _watch_url(video_id: str) -> str:
 def fetch(url: str) -> list:
     """Return a list of dicts: url, title, duration, channel, thumb."""
     proc = subprocess.run(
-        [str(ytdlp_path()), "-J", "--flat-playlist", "--no-warnings", url],
+        [str(ytdlp_path()), "-J", "--no-playlist", "--no-warnings", url],
         capture_output=True, text=True, encoding="utf-8", errors="replace",
         timeout=180, creationflags=NO_WINDOW, env=tool_env(), stdin=subprocess.DEVNULL,
     )
@@ -38,7 +38,7 @@ def fetch(url: str) -> list:
         }
 
     if data.get("_type") == "playlist":
-        return [entry(e, url) for e in data.get("entries") or [] if e]
+        raise RuntimeError("@playlist")
     return [entry(data, url)]
 
 

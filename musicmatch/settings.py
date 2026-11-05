@@ -10,6 +10,7 @@ DEFAULTS = {
     "height": "Best",
     "parallel": "2",
     "size": "1120x780",
+    "lang": "",
 }
 
 

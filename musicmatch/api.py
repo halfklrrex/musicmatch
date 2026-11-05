@@ -15,11 +15,11 @@ from pathlib import Path
 import webview
 
 from . import history, metadata
-from .clipboard import extract_urls
+from .clipboard import extract_urls, scan
 from .naming import file_base, guess
 from .downloader import Job, Manager, parse_time, update_ytdlp
 
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 
 
 def read_clipboard() -> str:
@@ -59,6 +59,7 @@ class Api:
         self._ids = itertools.count(1)
         self._seen = set()
         self._fetching = 0
+        self._gen = 0
         self._lock = threading.Lock()
         self._history_lock = threading.Lock()
         self._manager = Manager(self._on_job, int(settings["parallel"]))
@@ -93,12 +94,12 @@ class Api:
         s = self._settings
         return {
             "version": VERSION,
-            "fmt": str(s["fmt"]).lower(), "kbps": s["kbps"], "height": s["height"], "parallel": s["parallel"],
+            "fmt": str(s["fmt"]).lower(), "lang": s["lang"], "kbps": s["kbps"], "height": s["height"], "parallel": s["parallel"],
             "folder": display_dir(s["out_dir"]),
         }
 
     def set_setting(self, key, value):
-        if key not in ("fmt", "kbps", "height", "parallel"):
+        if key not in ("fmt", "kbps", "height", "parallel", "lang"):
             return False
         self._settings[key] = str(value).upper() if key == "fmt" else str(value)
         if key == "parallel":
@@ -122,7 +123,7 @@ class Api:
 
     # ---------------------------------------------------------- adding links
     def add_urls(self, text):
-        urls = extract_urls(text)
+        urls, skipped = scan(text)
         tickets = []
         for u in urls:
             self._seen.add(u)
@@ -131,10 +132,10 @@ class Api:
             with self._lock:
                 self._fetching += 1
         for u, ticket in zip(urls, tickets):
-            threading.Thread(target=self._fetch, args=(u, ticket), daemon=True).start()
-        return {"added": len(urls), "tickets": tickets}
+            threading.Thread(target=self._fetch, args=(u, ticket, self._gen), daemon=True).start()
+        return {"added": len(urls), "tickets": tickets, "skipped": skipped}
 
-    def _fetch(self, url, ticket):
+    def _fetch(self, url, ticket, gen):
         error = None
         try:
             entries = metadata.fetch(url)
@@ -143,6 +144,8 @@ class Api:
             error = str(e).replace("ERROR: ", "")
         rows = []
         with self._lock:
+            if gen != self._gen:  # the queue was cleared while this link was loading
+                return
             self._fetching = max(0, self._fetching - 1)
             n = self._fetching
             known = {j.url for j in self._jobs.values() if j.state != "done"}
@@ -186,7 +189,7 @@ class Api:
             except ValueError:
                 job.state = "error"
                 self._push({"t": "job", "id": job.id, "kind": "error",
-                            "data": "Invalid trim time (use 1:30)"})
+                            "data": "@invalid_trim"})
                 continue
             job.kbps = self._settings["kbps"]
             job.height = self._settings["height"]
@@ -198,6 +201,17 @@ class Api:
         job = self._jobs.get(job_id)
         if job:
             self._manager.cancel(job)
+
+    def clear_all(self):
+        """Cancel everything and empty the queue."""
+        with self._lock:
+            self._gen += 1
+            self._fetching = 0
+            jobs = list(self._jobs.values())
+            self._jobs.clear()
+        for job in jobs:
+            if job.state in ("queued", "running"):
+                self._manager.cancel(job)
 
     def remove(self, job_id):
         job = self._jobs.pop(job_id, None)
@@ -234,5 +248,5 @@ class Api:
                 msg = update_ytdlp()
                 self._push({"t": "updated", "msg": msg, "ok": True})
             except Exception as e:  # noqa: BLE001
-                self._push({"t": "updated", "msg": f"Update failed: {e}", "ok": False})
+                self._push({"t": "updated", "msg": str(e), "ok": False})
         threading.Thread(target=work, daemon=True).start()

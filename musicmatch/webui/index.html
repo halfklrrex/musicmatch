@@ -25,6 +25,36 @@
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
     <symbol id="i-note" viewBox="0 0 24 24"><path d="M9 18V5.5l11-2V16"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
     <symbol id="i-open" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></symbol>
+
+    <!-- flags (drawn, because Windows has no flag emoji) -->
+    <symbol id="flag-us" viewBox="0 0 24 16">
+      <clipPath id="fc-us"><rect width="24" height="16" rx="3"/></clipPath>
+      <g clip-path="url(#fc-us)">
+        <rect width="24" height="16" fill="#fff"/>
+        <g fill="#C8102E">
+          <rect y="0" width="24" height="1.23"/><rect y="2.46" width="24" height="1.23"/><rect y="4.92" width="24" height="1.23"/>
+          <rect y="7.38" width="24" height="1.23"/><rect y="9.85" width="24" height="1.23"/><rect y="12.31" width="24" height="1.23"/>
+          <rect y="14.77" width="24" height="1.23"/>
+        </g>
+        <rect width="10.4" height="8.6" fill="#3C3B6E"/>
+        <g fill="#fff">
+          <circle cx="1.6" cy="1.5" r=".42"/><circle cx="3.9" cy="1.5" r=".42"/><circle cx="6.2" cy="1.5" r=".42"/><circle cx="8.5" cy="1.5" r=".42"/>
+          <circle cx="2.75" cy="3.2" r=".42"/><circle cx="5.05" cy="3.2" r=".42"/><circle cx="7.35" cy="3.2" r=".42"/>
+          <circle cx="1.6" cy="4.9" r=".42"/><circle cx="3.9" cy="4.9" r=".42"/><circle cx="6.2" cy="4.9" r=".42"/><circle cx="8.5" cy="4.9" r=".42"/>
+          <circle cx="2.75" cy="6.6" r=".42"/><circle cx="5.05" cy="6.6" r=".42"/><circle cx="7.35" cy="6.6" r=".42"/>
+        </g>
+        <rect x=".4" y=".4" width="23.2" height="15.2" rx="2.7" fill="none" stroke="rgba(0,0,0,.2)" stroke-width=".8"/>
+      </g>
+    </symbol>
+    <symbol id="flag-es" viewBox="0 0 24 16">
+      <clipPath id="fc-es"><rect width="24" height="16" rx="3"/></clipPath>
+      <g clip-path="url(#fc-es)">
+        <rect width="24" height="16" fill="#C60B1E"/>
+        <rect y="4" width="24" height="8" fill="#FFC400"/>
+        <rect x="5.2" y="6.3" width="2.6" height="3.4" rx=".6" fill="#C60B1E" opacity=".75"/>
+        <rect x=".4" y=".4" width="23.2" height="15.2" rx="2.7" fill="none" stroke="rgba(0,0,0,.2)" stroke-width=".8"/>
+      </g>
+    </symbol>
   </defs>
 </svg>
 
@@ -45,12 +75,16 @@
       </svg>
       <div class="brand-text">
         <h1><span>Music</span><b>Match</b></h1>
-        <p>Paste a YouTube link, get an MP3 or MP4.</p>
+        <p data-i18n="subtitle">Paste a YouTube link, get an MP3 or MP4.</p>
       </div>
     </div>
     <div class="top-actions">
-      <button class="btn ghost" id="historyBtn" type="button"><svg class="i"><use href="#i-history"/></svg>History</button>
-      <button class="btn ghost" id="updateBtn" type="button" title="Update the bundled yt-dlp downloader"><svg class="i"><use href="#i-refresh"/></svg>Update yt-dlp</button>
+      <div class="lang" id="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true" title="English"><svg class="flag" aria-hidden="true"><use href="#flag-us"/></svg>EN</button>
+        <button type="button" data-lang="es" aria-pressed="false" title="Español"><svg class="flag" aria-hidden="true"><use href="#flag-es"/></svg>ES</button>
+      </div>
+      <button class="btn ghost" id="historyBtn" type="button"><svg class="i"><use href="#i-history"/></svg><span data-i18n="history">History</span></button>
+      <button class="btn ghost" id="updateBtn" type="button" data-i18n-title="update_tip" title="Update the bundled yt-dlp downloader"><svg class="i"><use href="#i-refresh"/></svg><span data-i18n="update">Update yt-dlp</span></button>
     </div>
   </header>
 
@@ -60,46 +94,46 @@
       <div class="banner" id="banner" hidden>
         <svg class="i"><use href="#i-clipboard"/></svg>
         <span class="banner-text" id="bannerText"></span>
-        <button class="btn primary sm" id="bannerAdd" type="button">Add</button>
-        <button class="btn quiet sm" id="bannerDismiss" type="button">Dismiss</button>
+        <button class="btn primary sm" id="bannerAdd" type="button" data-i18n="add">Add</button>
+        <button class="btn quiet sm" id="bannerDismiss" type="button" data-i18n="dismiss">Dismiss</button>
       </div>
 
       <form class="adder" id="addForm" autocomplete="off">
         <svg class="i lead"><use href="#i-link"/></svg>
-        <input id="url" type="text" spellcheck="false" placeholder="Paste YouTube video or playlist URL(s) here…" aria-label="YouTube URL">
-        <button class="btn tint" id="pasteBtn" type="button"><svg class="i"><use href="#i-clipboard"/></svg>Paste</button>
-        <button class="btn primary" type="submit"><svg class="i"><use href="#i-plus"/></svg>Add to queue</button>
+        <input id="url" type="text" spellcheck="false" data-i18n-ph="url_ph" placeholder="Paste YouTube video or playlist URL(s) here…" aria-label="YouTube URL">
+        <button class="btn tint" id="pasteBtn" type="button"><svg class="i"><use href="#i-clipboard"/></svg><span data-i18n="paste">Paste</span></button>
+        <button class="btn primary" type="submit"><svg class="i"><use href="#i-plus"/></svg><span data-i18n="add_queue">Add to queue</span></button>
       </form>
 
       <section class="prefs card" aria-label="Options">
         <div class="pref">
-          <span class="pref-label">New items</span>
+          <span class="pref-label" data-i18n="new_items">New items</span>
           <div class="seg" id="defFmt" role="group">
             <button type="button" data-v="mp3">MP3</button><button type="button" data-v="mp4">MP4</button>
           </div>
         </div>
         <div class="pref">
-          <span class="pref-label">MP3 quality</span>
+          <span class="pref-label" data-i18n="mp3_quality">MP3 quality</span>
           <label class="select"><select id="kbps"><option value="128">128 kbps</option><option value="192">192 kbps</option><option value="320">320 kbps</option></select><svg class="i"><use href="#i-chevron"/></svg></label>
         </div>
         <div class="pref">
-          <span class="pref-label">MP4 max</span>
-          <label class="select"><select id="height"><option>Best</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option><option value="360">360p</option></select><svg class="i"><use href="#i-chevron"/></svg></label>
+          <span class="pref-label" data-i18n="mp4_max">MP4 max</span>
+          <label class="select"><select id="height"><option value="Best" data-i18n="best">Best</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option><option value="360">360p</option></select><svg class="i"><use href="#i-chevron"/></svg></label>
         </div>
         <div class="pref">
-          <span class="pref-label">Parallel</span>
+          <span class="pref-label" data-i18n="parallel">Parallel</span>
           <label class="select"><select id="parallel"><option>1</option><option>2</option><option>3</option><option>4</option></select><svg class="i"><use href="#i-chevron"/></svg></label>
         </div>
         <div class="pref folder">
           <svg class="i"><use href="#i-folder"/></svg>
           <span class="folder-path" id="folder">~\Downloads\MusicMatch</span>
-          <button class="btn tint sm" id="browseBtn" type="button">Browse…</button>
-          <button class="btn quiet sm" id="openFolderBtn" type="button">Open</button>
+          <button class="btn tint sm" id="browseBtn" type="button" data-i18n="browse">Browse…</button>
+          <button class="btn quiet sm" id="openFolderBtn" type="button" data-i18n="open">Open</button>
         </div>
       </section>
 
       <div class="section-head" id="queueHead" hidden>
-        <h2>Queue</h2><span class="count" id="count">0</span>
+        <h2 data-i18n="queue">Queue</h2><span class="count" id="count">0</span>
       </div>
 
       <main class="queue" id="queue" aria-live="polite"></main>
@@ -111,32 +145,34 @@
           <path d="M256,365 V205 A58,58 0 0 1 372,205 V365" fill="none" stroke="#64B5FF" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M256,365 V205 A58,58 0 0 1 372,205 V365" fill="none" stroke="#0051D5" stroke-width="52" stroke-linecap="round" stroke-linejoin="round" mask="url(#ov)"/>
         </svg>
-        <h2>Your queue is empty</h2>
-        <p>Paste a YouTube link above, or press <kbd>Ctrl</kbd> + <kbd>V</kbd> anywhere.</p>
+        <h2 data-i18n="empty_title">Your queue is empty</h2>
+        <p data-i18n-html="empty_hint">Paste a YouTube link above, or press <kbd>Ctrl</kbd> + <kbd>V</kbd> anywhere.</p>
       </div>
 
     </div>
   </div>
 
   <footer class="bar dock">
-    <button class="btn primary lg" id="downloadAll" type="button"><svg class="i"><use href="#i-download"/></svg>Download all</button>
-    <button class="btn tint lg" id="clearDone" type="button">Clear finished</button>
+    <button class="btn primary lg" id="downloadAll" type="button"><svg class="i"><use href="#i-download"/></svg><span data-i18n="download_all">Download all</span></button>
+    <button class="btn tint lg" id="clearDone" type="button" data-i18n="clear_done">Clear finished</button>
+    <button class="btn danger lg" id="clearAll" type="button" data-i18n="clear_queue">Clear queue</button>
     <span class="status" id="status"></span>
   </footer>
 
   <div class="scrim" id="scrim" hidden></div>
   <aside class="sheet" id="sheet" aria-label="Download history" aria-hidden="true">
     <div class="sheet-head">
-      <h2>History</h2>
-      <button class="icon-btn" id="sheetClose" type="button" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+      <h2 data-i18n="history">History</h2>
+      <button class="icon-btn" id="sheetClose" type="button" aria-label="Close" data-i18n-aria="close"><svg class="i"><use href="#i-x"/></svg></button>
     </div>
     <div class="sheet-body" id="historyList"></div>
-    <div class="sheet-foot"><button class="btn tint" id="historyClear" type="button">Clear history</button></div>
+    <div class="sheet-foot"><button class="btn tint" id="historyClear" type="button" data-i18n="clear_history">Clear history</button></div>
   </aside>
 
   <div class="toast" id="toast" role="status" hidden></div>
 </div>
 
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

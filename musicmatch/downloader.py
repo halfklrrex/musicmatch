@@ -129,7 +129,7 @@ Emit = Callable[[Job, str, object], None]
 def _normalize_mp4(job: Job, emit: Emit) -> bool:
     src = Path(job.result_path)
     tmp = src.with_name(src.stem + ".norm.mp4")
-    emit(job, "status", "Normalizing volume…")
+    emit(job, "status", "@normalizing")
     cmd = [str(ffmpeg_path()), "-y", "-i", str(src), "-map", "0", "-c:v", "copy",
            "-c:a", "aac", "-b:a", "192k", "-af", "loudnorm", "-movflags", "+faststart", str(tmp)]
     job.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -140,7 +140,7 @@ def _normalize_mp4(job: Job, emit: Emit) -> bool:
         return False
     if rc != 0:
         tmp.unlink(missing_ok=True)
-        raise RuntimeError("ffmpeg volume normalization failed")
+        raise RuntimeError("@norm_failed")
     os.replace(tmp, src)
     return True
 
@@ -154,7 +154,7 @@ def _write_tags(job: Job, emit: Emit) -> bool:
     src = Path(job.result_path)
     tmp = src.with_name(src.stem + ".tagged" + src.suffix)
     song = job.song or job.title
-    emit(job, "status", "Writing tags…")
+    emit(job, "status", "@tagging")
     cmd = [str(ffmpeg_path()), "-y", "-i", str(src), "-map", "0", "-c", "copy", "-map_metadata", "-1",
            "-metadata", f"title={song}", "-metadata", f"album={song}"]
     if job.artist:
@@ -173,7 +173,7 @@ def _write_tags(job: Job, emit: Emit) -> bool:
         return False
     if rc != 0:
         tmp.unlink(missing_ok=True)
-        raise RuntimeError("Could not write the song tags")
+        raise RuntimeError("@tags_failed")
     os.replace(tmp, src)
     return True
 
@@ -186,7 +186,7 @@ def run_job(job: Job, emit: Emit):
         cmd = build_command(job, name)
     except ValueError:
         job.state = "error"
-        emit(job, "error", "Invalid trim time (use e.g. 1:30 or 0:01:30)")
+        emit(job, "error", "@invalid_trim")
         return
     except Exception as e:
         job.state = "error"
@@ -194,7 +194,7 @@ def run_job(job: Job, emit: Emit):
         return
 
     job.state = "running"
-    emit(job, "status", "Starting…")
+    emit(job, "status", "@starting")
     errors = []
     try:
         job.proc = subprocess.Popen(
@@ -213,14 +213,11 @@ def run_job(job: Job, emit: Emit):
                     value = float(pct.rstrip("%"))
                 except ValueError:
                     continue
-                bits = [pct]
-                if speed and "Unknown" not in speed:
-                    bits.append(speed)
-                if eta and "Unknown" not in eta:
-                    bits.append(f"ETA {eta}")
-                emit(job, "progress", (value, "  •  ".join(bits)))
+                speed = "" if (not speed or "Unknown" in speed) else speed
+                eta = "" if (not eta or "Unknown" in eta) else eta
+                emit(job, "progress", (value, f"@prog|{pct}|{speed}|{eta}"))
             elif line.startswith("MMPP "):
-                emit(job, "progress", (100.0, "Converting…"))
+                emit(job, "progress", (100.0, "@converting"))
             elif line.startswith("MMFILE "):
                 job.result_path = line[7:].strip()
             elif line.startswith("ERROR"):
