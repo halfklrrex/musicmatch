@@ -155,6 +155,15 @@ input, .folder-path, .title { user-select: text; }
 .title { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; letter-spacing: -.01em; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .acts { display: flex; align-items: center; gap: 6px; flex: none; }
 
+.tags { gap: 8px; color: var(--text-3); }
+.tags .i { width: 16px; height: 16px; }
+.field { flex: 1 1 0; min-width: 0; height: 30px; padding: 0 12px; border: 0; border-radius: 9px; background: var(--field); color: var(--text); font-size: 12px; font-weight: 500; outline: 0; transition: box-shadow .15s; }
+.field[data-k="artist"] { flex: .8 1 0; }
+.field:focus { box-shadow: 0 0 0 2px var(--accent); }
+.field::placeholder { color: var(--text-3); font-weight: 400; }
+.field:disabled { opacity: .6; }
+.saveas { flex: 1.1 1 0; min-width: 0; font-size: 11px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
+.saveas::before { content: "Saves as  "; }
 .trim { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 12px; }
 .trim .i { width: 16px; height: 16px; color: var(--text-3); }
 .time { width: 64px; height: 30px; padding: 0 10px; border: 0; border-radius: 9px; background: var(--field); font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; outline: 0; transition: box-shadow .15s; }

@@ -32,6 +32,8 @@ def fetch(url: str) -> list:
             "title": d.get("title") or u,
             "duration": d.get("duration"),
             "channel": d.get("channel") or d.get("uploader") or "",
+            "artist": d.get("artist") or "",
+            "track": d.get("track") or "",
             "thumb": thumb,
         }
 

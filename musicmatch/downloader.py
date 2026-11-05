@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
+from .naming import file_base
 from .paths import NO_WINDOW, ffmpeg_dir, ffmpeg_path, tool_env, ytdlp_path
 
 _ILLEGAL = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
@@ -21,6 +22,8 @@ class Job:
     id: int
     url: str
     title: str
+    song: str = ""            # song title written to the tags and the file name
+    artist: str = ""
     fmt: str = "mp3"          # "mp3" or "mp4"
     kbps: str = "320"
     height: str = "Best"
@@ -56,7 +59,7 @@ def sanitize(title: str) -> str:
 
 
 def _unique_base(job: Job) -> str:
-    base = sanitize(job.title)
+    base = sanitize(file_base(job.song or job.title, job.artist))
     out = Path(job.out_dir)
     n = 0
     with _reserved_lock:
@@ -82,7 +85,7 @@ def build_command(job: Job, name: str) -> list:
         "--progress-template", "download:MMPROG %(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s",
         "--progress-template", "postprocess:MMPP %(progress.postprocessor)s",
         "--print", "after_move:MMFILE %(filepath)s",
-        "-o", out_tmpl, "--embed-metadata",
+        "-o", out_tmpl,
     ]
     if job.fmt == "mp3":
         cmd += ["-f", "bestaudio/best", "-x", "--audio-format", "mp3",
@@ -138,6 +141,39 @@ def _normalize_mp4(job: Job, emit: Emit) -> bool:
     if rc != 0:
         tmp.unlink(missing_ok=True)
         raise RuntimeError("ffmpeg volume normalization failed")
+    os.replace(tmp, src)
+    return True
+
+
+
+def _write_tags(job: Job, emit: Emit) -> bool:
+    """Replace whatever tags yt-dlp wrote with clean ones, without re-encoding.
+
+    MP3: ID3v2.3 (+ ID3v1), which car stereos read reliably. Cover art is kept.
+    """
+    src = Path(job.result_path)
+    tmp = src.with_name(src.stem + ".tagged" + src.suffix)
+    song = job.song or job.title
+    emit(job, "status", "Writing tags…")
+    cmd = [str(ffmpeg_path()), "-y", "-i", str(src), "-map", "0", "-c", "copy", "-map_metadata", "-1",
+           "-metadata", f"title={song}", "-metadata", f"album={song}"]
+    if job.artist:
+        cmd += ["-metadata", f"artist={job.artist}", "-metadata", f"album_artist={job.artist}"]
+    if src.suffix.lower() == ".mp3":
+        cmd += ["-id3v2_version", "3", "-write_id3v1", "1",
+                "-metadata:s:v", "title=Album cover", "-metadata:s:v", "comment=Cover (front)"]
+    else:
+        cmd += ["-movflags", "+faststart"]
+    cmd.append(str(tmp))
+    job.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                stdin=subprocess.DEVNULL, creationflags=NO_WINDOW)
+    rc = job.proc.wait()
+    if job.cancelled:
+        tmp.unlink(missing_ok=True)
+        return False
+    if rc != 0:
+        tmp.unlink(missing_ok=True)
+        raise RuntimeError("Could not write the song tags")
     os.replace(tmp, src)
     return True
 
@@ -208,6 +244,11 @@ def run_job(job: Job, emit: Emit):
                 job.state = "cancelled"
                 emit(job, "cancelled", None)
                 return
+        if not _write_tags(job, emit):
+            _cleanup(job, name)
+            job.state = "cancelled"
+            emit(job, "cancelled", None)
+            return
         job.state = "done"
         emit(job, "done", job.result_path)
     except Exception as e:  # noqa: BLE001

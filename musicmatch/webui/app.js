@@ -33,7 +33,7 @@ function segHtml(fmt) {
 }
 
 function addRow(info, before) {
-  const r = { id: info.id, title: info.title, state: 'idle', fmt: state.fmt, pct: 0, status: 'Ready', path: '' };
+  const r = { id: info.id, title: info.title, song: info.song || info.title, artist: info.artist || '', state: 'idle', fmt: state.fmt, pct: 0, status: 'Ready', path: '' };
   state.rows.set(r.id, r);
   const el = document.createElement('article');
   el.className = 'row';
@@ -52,6 +52,12 @@ function addRow(info, before) {
           <button class="btn quiet sm" type="button" data-act="show" data-for="done">${icon('folder')}Show</button>
           <button class="icon-btn" type="button" data-act="remove" aria-label="Remove">${icon('x')}</button>
         </div>
+      </div>
+      <div class="line tags">
+        ${icon('note')}
+        <input class="field" data-k="song" value="${esc(r.song)}" placeholder="Song title" aria-label="Song title" spellcheck="false">
+        <input class="field" data-k="artist" value="${esc(r.artist)}" placeholder="Artist" aria-label="Artist" spellcheck="false">
+        <span class="saveas" title="File name"></span>
       </div>
       <div class="line">
         <div class="trim">${icon('scissors')}Trim
@@ -100,13 +106,27 @@ function setRow(r, st, status, pct) {
   $('.state', el).textContent = r.status;
   $('.state', el).title = r.status;
   el.querySelectorAll('.time, [data-k="norm"], .seg button').forEach(n => { n.disabled = locked; });
+  el.querySelectorAll('.field').forEach(n => { n.disabled = locked || st === 'done'; });
+  updateSaveAs(r);
   el.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.fmt === r.fmt)));
+}
+
+const illegal = /[<>:"\/\\|?*\x00-\x1f]/g;
+function updateSaveAs(r) {
+  const song = $('[data-k="song"]', r.el).value.trim() || r.title;
+  const artist = $('[data-k="artist"]', r.el).value.trim();
+  const base = (artist ? `${song} - ${artist}` : song).replace(illegal, '_').trim();
+  const name = `${base}.${r.fmt}`;
+  const out = $('.saveas', r.el);
+  out.textContent = name;
+  out.title = name;
 }
 
 function collect(r) {
   const el = r.el;
   return {
     id: r.id, fmt: r.fmt,
+    song: $('[data-k="song"]', el).value, artist: $('[data-k="artist"]', el).value,
     trim_start: $('[data-k="start"]', el).value, trim_end: $('[data-k="end"]', el).value,
     normalize: $('[data-k="norm"]', el).checked,
   };
@@ -119,6 +139,11 @@ function removeRow(r) {
   setTimeout(() => { r.el.remove(); refresh(); }, 240);
   refresh();
 }
+
+$('#queue').addEventListener('input', e => {
+  const row = e.target.closest('.row');
+  if (row && e.target.classList.contains('field')) updateSaveAs(state.rows.get(Number(row.dataset.id)));
+});
 
 $('#queue').addEventListener('click', e => {
   const row = e.target.closest('.row');

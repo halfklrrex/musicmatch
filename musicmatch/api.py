@@ -16,9 +16,10 @@ import webview
 
 from . import history, metadata
 from .clipboard import extract_urls
+from .naming import file_base, guess
 from .downloader import Job, Manager, parse_time, update_ytdlp
 
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 
 
 def read_clipboard() -> str:
@@ -77,7 +78,7 @@ class Api:
     def _on_job(self, job, kind, data):
         if kind == "done":
             with self._history_lock:
-                history.add(job.title, data, job.fmt.upper())
+                history.add(file_base(job.song or job.title, job.artist), data, job.fmt.upper())
         self._push({"t": "job", "id": job.id, "kind": kind, "data": data})
 
     def _on_closing(self):
@@ -149,9 +150,10 @@ class Api:
                 if e["url"] in known:
                     continue
                 known.add(e["url"])
-                job = Job(next(self._ids), e["url"], e["title"])
+                artist, song = guess(e["title"], e.get("channel", ""), e.get("artist", ""), e.get("track", ""))
+                job = Job(next(self._ids), e["url"], e["title"], song=song, artist=artist)
                 self._jobs[job.id] = job
-                rows.append({"id": job.id, "title": job.title, "url": job.url,
+                rows.append({"id": job.id, "title": job.title, "url": job.url, "song": song, "artist": artist,
                              "duration": e.get("duration"), "thumb": e.get("thumb"), "error": error})
         self._push({"t": "rows", "ticket": ticket, "rows": rows, "n": n})
 
@@ -176,6 +178,8 @@ class Api:
             job.trim_start = str(it.get("trim_start") or "").strip()
             job.trim_end = str(it.get("trim_end") or "").strip()
             job.normalize = bool(it.get("normalize"))
+            job.song = str(it.get("song") or "").strip() or job.title
+            job.artist = str(it.get("artist") or "").strip()
             try:
                 parse_time(job.trim_start)
                 parse_time(job.trim_end)
